@@ -6,7 +6,7 @@ day, in the one project whose interpreter lacks it, and is never reinstalled.
 
 | Tool | What it does | How it runs |
 |---|---|---|
-| `mdcheck.py` | Checks one Markdown file for the defects that silently break it: anchors that resolve nowhere, links to missing files, unclosed code fences, duplicate headings a link points at, a long file with no table of contents, phrases that expire | PostToolUse hook (`--hook`), pre-commit (`id: mdcheck`), CLI (`FILE...`, `--all DIR`, `--selftest`) |
+| `mdcheck.py` | Checks one Markdown file for the defects that silently break it: anchors that resolve nowhere, links to missing files, unclosed code fences, duplicate headings a link points at, a long file with no table of contents, phrases that expire | PostToolUse hook (`--hook`: the file an `Edit`/`Write` named, or the existing `.md` files a `Bash`/`PowerShell` command mentions), pre-commit (`id: mdcheck`), CLI (`FILE...`, `--all DIR`, `--selftest`) |
 | `ctxbudget.py` | Lists what Claude Code loads at every session start for one project — CLAUDE.md files, unscoped rules, the memory index, skill descriptions — with lines, characters and a token estimate | CLI (`PROJECT_DIR`, `--project-only`, `--max-tokens N`, `--json`) |
 
 Per-project knobs for `mdcheck` live in a `.mdcheck.json` at the repository root:

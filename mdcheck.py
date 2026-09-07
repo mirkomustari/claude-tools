@@ -28,7 +28,9 @@ Design constraints, each paid for by a specific failure mode:
 * A crash exits 0. The guardian must never cost more than what it guards: a
   hook that breaks sessions is uninstalled within a day, and it takes the
   useful part with it.
-* One file per invocation in hook mode. No tree walk, no git subprocess.
+* Hook mode checks the file an `Edit`/`Write` named, or the existing `.md`
+  files a `Bash`/`PowerShell` command line mentions (a `sed` or a heredoc
+  names its target only there). No tree walk, no git subprocess.
 * Link checking is opt-in per project. Notes and thesis folders are full of
   relative links to unversioned material; firing there would spend the
   credibility the checker needs for the cases that matter.
@@ -309,20 +311,53 @@ def _report(path: Path, findings: list[Finding]) -> str:
     return "\n".join(lines)
 
 
+#: A Markdown path inside a shell command line: anything up to shell syntax.
+_MD_IN_COMMAND = re.compile(r"""[^\s"'`|;&<>()]+\.(?:md|markdown)\b""", re.IGNORECASE)
+
+
+def _paths_in_command(command: str, cwd: str | None) -> list[Path]:
+    """The Markdown files a shell command names — as written, or under `cwd`.
+
+    Only files that exist are returned: a command that *creates* a file is
+    checked too, since the hook runs after it, and a token that resolves
+    nowhere (a `.md` in a URL, a grep pattern) is simply not ours.
+    """
+    found: list[Path] = []
+    for token in _MD_IN_COMMAND.findall(command):
+        for base in (None, cwd):
+            path = Path(token) if base is None else Path(base) / token
+            if path.is_file() and path not in found:
+                found.append(path)
+                break
+    return found
+
+
 def _run_hook() -> int:
     """Never fail loudly: a broken hook costs more than the defects it finds."""
     try:
         payload = json.load(sys.stdin)
-        raw = (payload.get("tool_input") or {}).get("file_path")
-        if not raw or not str(raw).lower().endswith((".md", ".markdown")):
-            return 0
-        path = Path(raw)
-        findings = check_file(path)
-        if not findings:
+        tool_input = payload.get("tool_input") or {}
+        raw = tool_input.get("file_path")
+        if raw:
+            if not str(raw).lower().endswith((".md", ".markdown")):
+                return 0
+            paths = [Path(raw)]
+        else:
+            # An edit made through Bash/PowerShell (sed, a heredoc) has no
+            # file_path; the command line is the only place the file is named.
+            paths = _paths_in_command(
+                str(tool_input.get("command") or ""), payload.get("cwd")
+            )
+        reports = []
+        for path in paths:
+            findings = check_file(path)
+            if findings:
+                reports.append(_report(path, findings))
+        if not reports:
             return 0
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PostToolUse",
-            "additionalContext": _report(path, findings),
+            "additionalContext": "\n".join(reports),
         }}))
     except Exception:  # noqa: BLE001 - deliberate: silence beats breakage
         return 0
@@ -392,6 +427,22 @@ def _selftest() -> int:
             failures.append(f"false positive: {label}")
         else:
             print(f"  {label}: ignored")
+
+    # The Bash/PowerShell branch of the hook: the file a command line names
+    # is found, an absent one is not, and nothing else on the line is.
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "note.md"
+        target.write_text("# T\n", encoding="utf-8")
+        command = (
+            f'cd "{tmp}" && sed -i "s/a/b/" note.md && '
+            "cat zz_absent_9f.md | grep README.markdown"
+        )
+        found = _paths_in_command(command, tmp)
+        if found == [target]:
+            print("  hook: the .md a shell command names is found, absent ones are not")
+        else:
+            failures.append(f"paths in a command line: {found}")
 
     if failures:
         print(f"FAILED: {failures}")
