@@ -1,0 +1,15 @@
+# Reference from a project's .pre-commit-config.yaml:
+#
+#   - repo: https://github.com/mirkomustari/claude-tools
+#     rev: v0.1.0
+#     hooks:
+#       - id: mdcheck
+#
+# Per-project knobs live in a `.mdcheck.json` at the repository root.
+- id: mdcheck
+  name: mdcheck (markdown anchors, links, fences, expiring phrases)
+  description: Standard-library Markdown checker; the judgement half stays with the writer.
+  entry: mdcheck
+  language: python
+  files: \.(md|markdown)$
+  pass_filenames: true
