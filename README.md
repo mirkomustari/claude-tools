@@ -19,10 +19,15 @@ As a pre-commit hook:
 
 ```yaml
 - repo: https://github.com/mirkomustari/claude-tools
-  rev: v0.1.0
+  rev: v0.1.1
   hooks:
     - id: mdcheck
 ```
+
+In CI, `pip install "git+https://github.com/mirkomustari/claude-tools@v0.1.1"`
+installs both entry points; `ctxbudget . --project-only --max-tokens N` is the
+token ratchet on the always-loaded files (exit 2 over budget), the counterpart
+of a line-count test.
 
 `RICERCA_MD.md` (Italian) is the research record behind these tools: what was
 evaluated, what was adopted, what was rejected and why.
